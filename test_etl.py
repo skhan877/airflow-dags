@@ -14,7 +14,10 @@ def extract_data():
     data = resp.json() 
     return data["results"]
 
-def transform_data(users): 
+def transform_data(**context):
+    ti = context["ti"]
+    users = ti.xcom_pull(task_ids="extract_data") 
+
     transformed_data = [] 
     for user in users:
         transformed_data.append({
@@ -26,10 +29,12 @@ def transform_data(users):
     df = pd.DataFrame(transformed_data)
     return df.to_dict(orient="records")
 
-def load_data(records):
+def load_data(**context):
+    ti = context["ti"]
+    records = ti.xcom_pull(task_ids="transform_data")
     df = pd.DataFrame(records)
     output_path = os.path.expanduser("~/airflow/data/fake-users.csv")
-    os.mkdirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df.to_csv(output_path, index=False)
     print(f"Data saved to {output_path} with {len(df)} rows.")
 
@@ -43,20 +48,21 @@ with DAG(
 ) as dag:
 
     extract = PythonOperator(
-        task_id="extract",
-        python_callable=extract_data
+        task_id="extract_data",
+        python_callable=extract_data,
+        provide_context=True
     )
 
     transform = PythonOperator(
-        task_id="transform",
+        task_id="transform_data",
         python_callable=transform_data,
-        op_args=["{{ ti.xcom_pull(task_ids='extract') }}"]
+        provide_context=True
     )
 
     load = PythonOperator(
-        task_id="load",
+        task_id="load_data",
         python_callable=load_data,
-        op_args=["{{ ti.xcom_pull(task_ids='transform') }}"]
+        provide_context=True
     )
 
     extract >> transform >> load 
