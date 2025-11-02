@@ -14,7 +14,7 @@ def _choose_best_model(ti):
     return "accurate" if best_accuracy >= 8 else "inaccurate" 
 
 with DAG(
-    dag_id="randint_dag"
+    dag_id="my_first_dag"
     , start_date=datetime(2025, 1, 1)
     , schedule_interval="@daily"
     , catchup=False
